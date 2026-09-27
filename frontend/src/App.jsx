@@ -1,4 +1,52 @@
 import Navbar from "./components/Navbar";
+import ProductCard from "./components/ProductCard";
+
+const products = [
+  {
+    id: 1,
+    name: "Nova Pro Headphones",
+    category: "Audio",
+    price: 12999,
+    originalPrice: 15999,
+    discount: 19,
+    rating: 4.8,
+    image:
+      "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800",
+  },
+  {
+    id: 2,
+    name: "Nova Mechanical Keyboard",
+    category: "Gaming",
+    price: 7499,
+    originalPrice: 8999,
+    discount: 17,
+    rating: 4.7,
+    image:
+      "https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800",
+  },
+  {
+    id: 3,
+    name: "Nova Wireless Mouse",
+    category: "Gaming",
+    price: 3499,
+    originalPrice: 4499,
+    discount: 22,
+    rating: 4.6,
+    image:
+      "https://images.unsplash.com/photo-1527814050087-3793815479db?w=800",
+  },
+  {
+    id: 4,
+    name: "Nova Smart Watch",
+    category: "Wearables",
+    price: 9999,
+    originalPrice: 11999,
+    discount: 17,
+    rating: 4.8,
+    image:
+      "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800",
+  },
+];
 
 function App() {
   return (
@@ -86,11 +134,35 @@ function App() {
                   Explore →
                 </div>
               </div>
+              
             ))}
-
           </div>
+          </section>
+          <section className="mx-auto max-w-7xl px-6 py-24">
+  <div className="mb-12 flex items-end justify-between">
+    <div>
+      <p className="text-sm font-semibold uppercase tracking-[0.25em] text-gray-400">
+        Featured
+      </p>
 
-        </section>
+      <h2 className="mt-2 text-4xl font-black tracking-tight">
+        Trending products
+      </h2>
+    </div>
+
+    <button className="hidden text-sm font-bold sm:block">
+      View all →
+    </button>
+  </div>
+
+  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+    {products.map((product) => (
+      <ProductCard key={product.id} product={product} />
+    ))}
+  </div>
+</section>
+
+        
       </main>
     </div>
   );

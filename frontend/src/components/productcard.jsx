@@ -1,0 +1,71 @@
+import { Heart, ShoppingBag, Star } from "lucide-react";
+
+function ProductCard({ product }) {
+  return (
+    <div className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+      
+      {/* Product Image */}
+      <div className="relative aspect-square overflow-hidden bg-gray-100">
+        <img
+          src={product.image}
+          alt={product.name}
+          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+        />
+
+        {/* Wishlist */}
+        <button className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md transition hover:bg-black hover:text-white">
+          <Heart size={18} />
+        </button>
+
+        {/* Discount */}
+        {product.discount && (
+          <span className="absolute left-4 top-4 rounded-full bg-black px-3 py-1 text-xs font-bold text-white">
+            -{product.discount}%
+          </span>
+        )}
+      </div>
+
+      {/* Product Information */}
+      <div className="p-5">
+        
+        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+          {product.category}
+        </p>
+
+        <h3 className="mt-2 text-lg font-bold text-gray-900">
+          {product.name}
+        </h3>
+
+        {/* Rating */}
+        <div className="mt-2 flex items-center gap-1">
+          <Star size={15} fill="currentColor" />
+          <span className="text-sm font-medium">
+            {product.rating}
+          </span>
+        </div>
+
+        {/* Price */}
+        <div className="mt-4 flex items-center gap-3">
+          <span className="text-xl font-black">
+            ₹{product.price.toLocaleString("en-IN")}
+          </span>
+
+          {product.originalPrice && (
+            <span className="text-sm text-gray-400 line-through">
+              ₹{product.originalPrice.toLocaleString("en-IN")}
+            </span>
+          )}
+        </div>
+
+        {/* Add to Cart */}
+        <button className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-black px-4 py-3 text-sm font-bold text-white transition hover:bg-gray-800">
+          <ShoppingBag size={17} />
+          Add to Cart
+        </button>
+
+      </div>
+    </div>
+  );
+}
+
+export default ProductCard;
