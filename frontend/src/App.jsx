@@ -1,8 +1,10 @@
+import { Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import ProductCard from "./components/ProductCard";
 import products from "./data/products";
+import Shop from "./pages/Shop";
 
-function App() {
+function Home() {
   return (
     <div className="min-h-screen bg-white text-gray-900">
       <Navbar />
@@ -119,6 +121,15 @@ function App() {
         
       </main>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/shop" element={<Shop />} />
+    </Routes>
   );
 }
 
