@@ -15,3 +15,34 @@ body {
   margin: 0;
   min-width: 320px;
 }
+@keyframes nova-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nova-fade-up {
+  animation: nova-fade-up 0.6s ease-out both;
+}
+
+@keyframes nova-image-reveal {
+  from {
+    opacity: 0;
+    transform: translateX(-30px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.nova-image-reveal {
+  animation: nova-image-reveal 0.7s ease-out both;
+}

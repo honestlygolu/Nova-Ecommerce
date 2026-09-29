@@ -1,7 +1,10 @@
 import { Search, ShoppingBag, Heart, User } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useContext } from "react";
+import CartContext from "../context/CartContext";
 
 function Navbar() {
+  const { cartItems } = useContext(CartContext);
   return (
     <nav className="border-b border-gray-200 bg-white">
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
@@ -53,13 +56,16 @@ function Navbar() {
             <User size={20} />
           </button>
 
-          <button className="relative text-gray-700 transition hover:text-black">
-            <ShoppingBag size={21} />
+         <Link
+          to="/cart"
+          className="relative text-gray-700 transition hover:text-black"
+        >
+          <ShoppingBag size={21} />
 
-            <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-black text-[10px] text-white">
-              0
-            </span>
-          </button>
+          <span className="absolute -right-3 -top-3 flex h-5 w-5 items-center justify-center rounded-full bg-black text-xs font-bold text-white">
+            {cartItems.length}
+          </span>
+        </Link>
         </div>
 
       </div>

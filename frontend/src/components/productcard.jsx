@@ -1,7 +1,10 @@
 import { Heart, ShoppingBag, Star } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useContext } from "react";
+import CartContext from "../context/CartContext";
 
 function ProductCard({ product }) {
+  const { addToCart } = useContext(CartContext);
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white transition duration-300 hover:-translate-y-1 hover:shadow-xl">
       
@@ -64,7 +67,10 @@ function ProductCard({ product }) {
         </div>
 
         {/* Add to Cart */}
-        <button className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-black px-4 py-3 text-sm font-bold text-white transition hover:bg-gray-800">
+        <button
+          onClick={() => addToCart(product)}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-black py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+        >
           <ShoppingBag size={17} />
           Add to Cart
         </button>
