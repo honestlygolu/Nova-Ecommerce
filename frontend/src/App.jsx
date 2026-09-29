@@ -3,6 +3,7 @@ import Navbar from "./components/Navbar";
 import ProductCard from "./components/ProductCard";
 import products from "./data/products";
 import Shop from "./pages/Shop";
+import ProductDetails from "./pages/ProductDetails";
 
 function Home() {
   return (
@@ -129,6 +130,7 @@ function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/shop" element={<Shop />} />
+      <Route path="/product/:id" element={<ProductDetails />} />
     </Routes>
   );
 }

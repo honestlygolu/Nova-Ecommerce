@@ -1,4 +1,5 @@
 import { Heart, ShoppingBag, Star } from "lucide-react";
+import { Link } from "react-router-dom";
 
 function ProductCard({ product }) {
   return (
@@ -6,11 +7,13 @@ function ProductCard({ product }) {
       
       {/* Product Image */}
       <div className="relative aspect-square overflow-hidden bg-gray-100">
-        <img
+       <Link to={`/product/${product.id}`}>
+       <img
           src={product.image}
           alt={product.name}
           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
         />
+        </Link>
 
         {/* Wishlist */}
         <button className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md transition hover:bg-black hover:text-white">
@@ -32,9 +35,12 @@ function ProductCard({ product }) {
           {product.category}
         </p>
 
-        <h3 className="mt-2 text-lg font-bold text-gray-900">
+        <Link
+          to={`/product/${product.id}`}
+          className="mt-2 block text-lg font-bold text-gray-900 hover:underline"
+          >
           {product.name}
-        </h3>
+        </Link>      
 
         {/* Rating */}
         <div className="mt-2 flex items-center gap-1">
