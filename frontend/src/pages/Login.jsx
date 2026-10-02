@@ -1,23 +1,36 @@
 import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { getApiError } from "../services/api";
 
 function Login() {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isOn, setIsOn] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [ropeY, setRopeY] = useState(0);
   const [ropeX, setRopeX] = useState(0);
+  const [wiggleElapsed, setWiggleElapsed] = useState(1000);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   // --------------------------------------------------
   // PHYSICS STATE
   // --------------------------------------------------
   const physics = useRef({
     y: 0,
-    velocityY: 0,
     x: 0,
-    velocityX: 0,
   });
 
   const dragging = useRef(false);
   const pointerId = useRef(null);
+  const isOnRef = useRef(false);
+  const returnStartedAt = useRef(0);
+  const returnStartY = useRef(0);
+  const returnStartX = useRef(0);
 
   const dragStartY = useRef(0);
   const dragStartRopeY = useRef(0);
@@ -27,6 +40,7 @@ function Login() {
 
   const MAX_PULL = 145;
   const PULL_THRESHOLD = 65;
+  const RETURN_DURATION = 1000;
 
   // --------------------------------------------------
   // ROPE PHYSICS LOOP
@@ -38,43 +52,33 @@ function Login() {
       const p = physics.current;
 
       if (!dragging.current) {
-        // -----------------------------
-        // Vertical spring
-        // -----------------------------
-        const spring = 0.105;
-        const damping = 0.84;
+        const elapsed = returnStartedAt.current
+          ? performance.now() - returnStartedAt.current
+          : RETURN_DURATION;
+        setWiggleElapsed(elapsed);
+        const progress = Math.min(elapsed / RETURN_DURATION, 1);
+        const remaining = 1 - progress;
+        const easedReturn = 1 - progress * progress * (3 - 2 * progress);
+        const softWobble =
+          Math.sin(progress * Math.PI * 4) *
+          Math.sin(progress * Math.PI);
 
-        p.velocityY += -p.y * spring;
-        p.velocityY *= damping;
-        p.y += p.velocityY;
+        p.y = Math.max(
+          0,
+          Math.min(
+            MAX_PULL,
+            returnStartY.current * easedReturn +
+              returnStartY.current * softWobble * 0.025
+          )
+        );
+        p.x =
+          returnStartX.current * easedReturn +
+          Math.sin(progress * Math.PI * 3) * remaining * 3;
 
-        // -----------------------------
-        // Tiny horizontal rope wobble
-        // -----------------------------
-        const wobbleSpring = 0.075;
-        const wobbleDamping = 0.88;
-
-        p.velocityX += -p.x * wobbleSpring;
-        p.velocityX *= wobbleDamping;
-        p.x += p.velocityX;
-
-        // -----------------------------
-        // Stop microscopic movement
-        // -----------------------------
-        if (
-          Math.abs(p.y) < 0.05 &&
-          Math.abs(p.velocityY) < 0.05
-        ) {
+        if (progress >= 1) {
           p.y = 0;
-          p.velocityY = 0;
-        }
-
-        if (
-          Math.abs(p.x) < 0.05 &&
-          Math.abs(p.velocityX) < 0.05
-        ) {
           p.x = 0;
-          p.velocityX = 0;
+          returnStartedAt.current = 0;
         }
       }
 
@@ -110,14 +114,12 @@ function Login() {
 
     // Release pointer capture safely
     try {
+      const captureTarget =
+        event?.currentTarget?.ownerSVGElement ?? event?.currentTarget;
       if (
-        event?.currentTarget?.hasPointerCapture?.(
-          event.pointerId
-        )
+        captureTarget?.hasPointerCapture?.(event.pointerId)
       ) {
-        event.currentTarget.releasePointerCapture(
-          event.pointerId
-        );
+        captureTarget.releasePointerCapture(event.pointerId);
       }
     } catch {
       // Ignore pointer capture errors
@@ -129,7 +131,8 @@ function Login() {
     const pulledEnough = p.y >= PULL_THRESHOLD;
 
     if (pulledEnough && !switchLocked.current) {
-      const turningOn = !isOn;
+      const turningOn = !isOnRef.current;
+      isOnRef.current = turningOn;
 
       setIsOn(turningOn);
 
@@ -145,16 +148,9 @@ function Login() {
       );
     }
 
-    // ------------------------------------------------
-    // PHYSICAL SNAP BACK
-    // ------------------------------------------------
-
-    // Strong enough to visibly spring upward
-    p.velocityY = -2.2;
-
-    // Small natural sideways impulse
-    p.velocityX =
-      Math.random() > 0.5 ? 1.4 : -1.4;
+    returnStartY.current = p.y;
+    returnStartX.current = p.x;
+    returnStartedAt.current = performance.now();
   };
 
   // --------------------------------------------------
@@ -170,16 +166,15 @@ function Login() {
 
     dragStartY.current = event.clientY;
     dragStartRopeY.current = physics.current.y;
-
-    physics.current.velocityY = 0;
-    physics.current.velocityX = 0;
+    returnStartedAt.current = 0;
+    setWiggleElapsed(0);
 
     setIsDragging(true);
 
     try {
-      event.currentTarget.setPointerCapture(
-        event.pointerId
-      );
+      const captureTarget =
+        event.currentTarget.ownerSVGElement ?? event.currentTarget;
+      captureTarget.setPointerCapture(event.pointerId);
     } catch {
       // Ignore
     }
@@ -210,7 +205,6 @@ function Login() {
     );
 
     physics.current.y = newY;
-    physics.current.velocityY = 0;
 
     // While dragging, rope stays mostly vertical.
     physics.current.x *= 0.85;
@@ -241,9 +235,9 @@ function Login() {
       pointerId.current = null;
       setIsDragging(false);
 
-      physics.current.velocityY = -1.8;
-      physics.current.velocityX =
-        Math.random() > 0.5 ? 1 : -1;
+      returnStartY.current = physics.current.y;
+      returnStartX.current = physics.current.x;
+      returnStartedAt.current = performance.now();
     };
 
     window.addEventListener(
@@ -282,15 +276,45 @@ function Login() {
   // --------------------------------------------------
   // ROPE GEOMETRY
   // --------------------------------------------------
-  const ropeLength = 105 + ropeY;
+  const ropeLength = 145 + ropeY;
 
   const bendAmount = ropeX;
 
-  const controlOneX = bendAmount * 0.35;
-  const controlTwoX = bendAmount * 0.8;
+  const curveProgress = isDragging
+    ? 1
+    : Math.min(wiggleElapsed / RETURN_DURATION, 1);
+  const curveAmplitude = 16 * (1 - curveProgress);
+  const curvePhase = wiggleElapsed * 0.012;
+  const controlOneX =
+    bendAmount * 0.35 +
+    Math.sin(curvePhase + Math.PI / 2) * curveAmplitude;
+  const controlTwoX =
+    bendAmount * 0.8 +
+    Math.sin(curvePhase + (3 * Math.PI) / 2) * curveAmplitude;
+  const ropePath = `
+    M 0 0
+    C
+    ${controlOneX} ${ropeLength * 0.32},
+    ${controlTwoX} ${ropeLength * 0.70},
+    ${bendAmount} ${ropeLength}
+  `;
+
+  const submitLogin = async (event) => {
+    event.preventDefault();
+    setFormError("");
+    setSubmitting(true);
+    try {
+      await login(email, password);
+      navigate(location.state?.from?.pathname || "/account", { replace: true });
+    } catch (error) {
+      setFormError(getApiError(error, "We couldn't sign you in."));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#08090a] text-white">
+    <main className="min-h-screen overflow-x-hidden bg-[#08090a] text-white">
       {/* ==============================================
           BACKGROUND
       ============================================== */}
@@ -325,7 +349,7 @@ function Login() {
           MAIN LAYOUT
       ============================================== */}
 
-      <div className="relative z-10 min-h-screen">
+      <div className="relative z-10 mx-auto min-h-[1040px] w-full max-w-[1100px] lg:min-h-screen">
         {/* ============================================
             LEFT — LAMP
         ============================================ */}
@@ -333,13 +357,19 @@ function Login() {
         <section
           className="
             absolute
-            left-[7%]
-            top-1/2
-            h-[620px]
+            left-1/2
+            top-0
+            h-[440px]
             w-[470px]
-            -translate-y-1/2
+            -translate-x-1/2
+            lg:left-[6%]
+            lg:top-1/2
+            lg:h-[310px]
+            lg:translate-x-0
+            lg:-translate-y-1/2
           "
         >
+          <div className="origin-top scale-[0.68] sm:scale-[0.82] lg:scale-[0.8]">
           {/* -------------------------------
               LIGHT GLOW
           -------------------------------- */}
@@ -348,17 +378,17 @@ function Login() {
             className={`
               pointer-events-none
               absolute
-              left-[48px]
-              top-[45px]
-              h-[430px]
-              w-[370px]
+              left-[45px]
+              top-[35px]
+              h-[340px]
+              w-[380px]
               rounded-full
-              blur-[80px]
+              blur-[95px]
               transition-all
-              duration-1000
+              duration-[1800ms]
               ${
                 isOn
-                  ? "bg-amber-200/25 opacity-100"
+                  ? "bg-amber-200/30 opacity-100"
                   : "bg-transparent opacity-0"
               }
             `}
@@ -368,56 +398,65 @@ function Login() {
               LAMP SHADE
           -------------------------------- */}
 
-          <div
-            className={`
-              absolute
-              left-[30px]
-              top-[45px]
-              h-[245px]
-              w-[380px]
-              rounded-t-[190px]
-              rounded-b-[45px]
-              transition-all
-              duration-700
-              ${
-                isOn
-                  ? `
-                    bg-gradient-to-b
-                    from-[#fffdf5]
-                    via-[#fff8df]
-                    to-[#d9cda9]
-                    shadow-[0_30px_100px_rgba(255,215,140,0.55)]
-                  `
-                  : `
-                    bg-gradient-to-b
-                    from-[#e9e6dc]
-                    via-[#cfcac0]
-                    to-[#8e8a82]
-                    shadow-[0_25px_80px_rgba(255,255,255,0.08)]
-                  `
-              }
-            `}
+          <svg
+            className="absolute left-[80px] top-[20px] h-[180px] w-[310px] overflow-visible"
+            viewBox="0 0 310 180"
+            aria-hidden="true"
           >
-            {/* Shade inner light */}
-            <div
-              className={`
-                absolute
-                bottom-0
-                left-1/2
-                h-[25px]
-                w-[310px]
-                -translate-x-1/2
-                rounded-full
-                transition-all
-                duration-700
-                ${
-                  isOn
-                    ? "bg-[#fff4cc] shadow-[0_0_50px_rgba(255,225,150,0.9)]"
-                    : "bg-[#77736c]"
-                }
-              `}
+            <defs>
+              <linearGradient id="nova-shade-off" x1="0" y1="0" x2="0.8" y2="1">
+                <stop offset="0%" stopColor="#f4e7cb" />
+                <stop offset="46%" stopColor="#c3a16a" />
+                <stop offset="100%" stopColor="#55432e" />
+              </linearGradient>
+              <linearGradient id="nova-shade-on" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#fff9e9" />
+                <stop offset="62%" stopColor="#f4d99e" />
+                <stop offset="100%" stopColor="#b47b39" />
+              </linearGradient>
+              <linearGradient id="nova-diffuser" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={isOn ? "#fff8e5" : "#8c7757"} />
+                <stop offset="100%" stopColor={isOn ? "#f5d58d" : "#4b3b27"} />
+              </linearGradient>
+            </defs>
+
+            <path
+              d="M103 8 C121 1 189 1 207 8 C224 14 234 25 241 41 L298 143 C305 156 298 165 284 168 C217 181 93 181 26 168 C12 165 5 156 12 143 L69 41 C76 25 86 14 103 8Z"
+              fill={isOn ? "url(#nova-shade-on)" : "url(#nova-shade-off)"}
+              stroke="#f8edda"
+              strokeOpacity={isOn ? "0.8" : "0.42"}
+              strokeWidth="1.5"
+              style={{
+                filter: isOn
+                  ? "drop-shadow(0 18px 34px rgba(242, 190, 103, 0.36))"
+                  : "drop-shadow(0 16px 22px rgba(0, 0, 0, 0.42))",
+                transition: "filter 1.2s ease, stroke 1.2s ease",
+              }}
             />
-          </div>
+
+            <path
+              d="M107 19 C132 11 178 11 202 19 C214 23 222 30 228 41"
+              fill="none"
+              stroke="white"
+              strokeOpacity="0.38"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+
+            <path
+              d="M18 146 C79 160 231 160 292 146 L286 161 C220 175 90 175 24 161Z"
+              fill="url(#nova-diffuser)"
+              style={{ transition: "fill 1.2s ease" }}
+            />
+            <path
+              d="M23 163 C88 176 222 176 287 163"
+              fill="none"
+              stroke="#f5d99f"
+              strokeOpacity="0.72"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
 
           {/* -------------------------------
               LAMP STEM
@@ -426,17 +465,20 @@ function Login() {
           <div
             className={`
               absolute
-              left-[210px]
-              top-[285px]
-              h-[125px]
-              w-[13px]
+              left-[228px]
+              top-[185px]
+              h-[150px]
+              w-[14px]
               rounded-full
               bg-gradient-to-r
-              from-[#716f6b]
-              via-[#f1eee4]
-              to-[#77746f]
+              from-[#51432f]
+              via-[#f0d49b]
+              to-[#80643d]
+              shadow-[0_0_14px_rgba(0,0,0,0.4)]
             `}
           />
+
+          <div className="absolute left-[216px] top-[323px] h-3 w-[38px] rounded-full border border-[#f4dfb5]/50 bg-gradient-to-b from-[#d7b778] to-[#604b2c] shadow-[0_5px_16px_rgba(0,0,0,0.5)]" />
 
           {/* -------------------------------
               LAMP BASE
@@ -445,17 +487,21 @@ function Login() {
           <div
             className="
               absolute
-              left-[65px]
-              top-[392px]
-              h-[32px]
-              w-[310px]
+              left-[115px]
+              top-[332px]
+              h-[30px]
+              w-[240px]
               rounded-full
+              border border-white/25
               bg-gradient-to-b
-              from-[#e8e4d9]
-              to-[#77736d]
-              shadow-[0_12px_35px_rgba(0,0,0,0.5)]
+              from-[#e6d3ad]
+              via-[#ab8953]
+              to-[#50412e]
+              shadow-[0_14px_36px_rgba(0,0,0,0.55)]
             "
           />
+
+          <div className="absolute left-[145px] top-[357px] h-[10px] w-[180px] rounded-full bg-gradient-to-b from-[#8d7148] to-[#34291d] shadow-[0_9px_22px_rgba(0,0,0,0.6)]" />
 
           {/* ==================================
               PULL CORD
@@ -464,26 +510,24 @@ function Login() {
           <div
             className="
               absolute
-              left-[350px]
-              top-[245px]
+              left-[340px]
+              top-[180px]
               z-30
             "
           >
             <svg
               width="90"
-              height={ropeLength + 80}
-              viewBox={`0 0 90 ${ropeLength + 80}`}
-              className="overflow-visible"
+              height={ropeLength + 50}
+              viewBox={`0 0 90 ${ropeLength + 50}`}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerCancel}
+              onLostPointerCapture={handlePointerCancel}
+              className={`overflow-visible touch-none ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
             >
               {/* rope */}
               <path
-                d={`
-                  M 0 0
-                  C
-                  ${controlOneX} ${ropeLength * 0.32},
-                  ${controlTwoX} ${ropeLength * 0.70},
-                  ${bendAmount} ${ropeLength}
-                `}
+                d={ropePath}
                 fill="none"
                 stroke="#aaa69c"
                 strokeWidth="3"
@@ -492,13 +536,8 @@ function Login() {
 
               {/* tiny highlight */}
               <path
-                d={`
-                  M 1 0
-                  C
-                  ${controlOneX + 1} ${ropeLength * 0.32},
-                  ${controlTwoX + 1} ${ropeLength * 0.70},
-                  ${bendAmount + 1} ${ropeLength}
-                `}
+                d={ropePath}
+                transform="translate(1 0)"
                 fill="none"
                 stroke="#e7e1d4"
                 strokeWidth="1"
@@ -522,30 +561,15 @@ function Login() {
                 fill="#ffffff"
                 opacity="0.75"
               />
+
+              <circle
+                cx={bendAmount}
+                cy={ropeLength + 11}
+                r="28"
+                fill="transparent"
+                onPointerDown={handlePointerDown}
+              />
             </svg>
-
-            {/* --------------------------------
-                INVISIBLE DRAG TARGET
-            -------------------------------- */}
-
-            <div
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              onPointerCancel={handlePointerCancel}
-              className="
-                absolute
-                left-1/2
-                top-full
-                h-20
-                w-20
-                -translate-x-1/2
-                cursor-grab
-                touch-none
-                rounded-full
-                active:cursor-grabbing
-              "
-            />
           </div>
 
           {/* ==================================
@@ -556,7 +580,7 @@ function Login() {
             className={`
               absolute
               left-[145px]
-              top-[465px]
+              top-[385px]
               text-center
               transition-all
               duration-500
@@ -575,6 +599,7 @@ function Login() {
               to enter NOVA
             </p>
           </div>
+          </div>
         </section>
 
         {/* ============================================
@@ -584,38 +609,45 @@ function Login() {
         <section
           className={`
             absolute
-            left-[58%]
-            top-1/2
-            w-[390px]
-            -translate-y-1/2
+            left-1/2
+            top-[510px]
+            w-[90vw]
+            max-w-[370px]
+            -translate-x-1/2
             transition-all
             duration-700
             ease-out
+            lg:left-[55%]
+            lg:top-1/2
+            lg:w-[370px]
+            lg:translate-x-0
+            lg:-translate-y-1/2
             ${
               isOn
-                ? "translate-x-0 opacity-100"
-                : "pointer-events-none translate-x-10 opacity-0"
+                ? "translate-y-0 opacity-100 lg:translate-x-0"
+                : "pointer-events-none translate-y-3 opacity-0 lg:translate-x-10"
             }
           `}
         >
           <div
             className="
-              rounded-[28px]
+              rounded-[24px]
               border
               border-white/10
-              bg-white/[0.045]
-              p-8
-              shadow-[0_30px_100px_rgba(0,0,0,0.55)]
+              bg-[#151515]/95
+              p-6
+              shadow-[0_26px_80px_rgba(0,0,0,0.55)]
               backdrop-blur-2xl
             "
           >
             {/* Logo */}
-            <div className="mb-8">
-              <div className="text-xs tracking-[0.4em] text-white/35">
-                NOVA
+            <div className="mb-6">
+              <div className="flex items-center gap-2 text-xs tracking-[0.4em] text-white/45">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#d9b979] shadow-[0_0_10px_rgba(217,185,121,0.5)]" />
+                <span>NOVA</span>
               </div>
 
-              <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight">
                 Welcome back.
               </h1>
 
@@ -625,19 +657,19 @@ function Login() {
             </div>
 
             {/* FORM */}
-            <form
-              onSubmit={(event) =>
-                event.preventDefault()
-              }
-              className="space-y-4"
-            >
+            <form onSubmit={submitLogin} className="space-y-3">
               <div>
-                <label className="mb-2 block text-xs text-white/45">
+                <label htmlFor="login-email" className="mb-2 block text-xs text-white/45">
                   Email
                 </label>
 
                 <input
+                  id="login-email"
                   type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
                   placeholder="you@example.com"
                   className="
                     w-full
@@ -646,25 +678,30 @@ function Login() {
                     border-white/10
                     bg-black/20
                     px-4
-                    py-3.5
+                    py-3
                     text-sm
                     text-white
                     outline-none
                     transition
-                    placeholder:text-white/20
-                    focus:border-white/25
+                    placeholder:text-white/30
+                    focus:border-[#d9b979]/60
                     focus:bg-black/30
                   "
                 />
               </div>
 
               <div>
-                <label className="mb-2 block text-xs text-white/45">
+                <label htmlFor="login-password" className="mb-2 block text-xs text-white/45">
                   Password
                 </label>
 
                 <input
+                  id="login-password"
                   type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
                   placeholder="••••••••"
                   className="
                     w-full
@@ -673,26 +710,33 @@ function Login() {
                     border-white/10
                     bg-black/20
                     px-4
-                    py-3.5
+                    py-3
                     text-sm
                     text-white
                     outline-none
                     transition
-                    placeholder:text-white/20
-                    focus:border-white/25
+                    placeholder:text-white/30
+                    focus:border-[#d9b979]/60
                     focus:bg-black/30
                   "
                 />
               </div>
 
+              {formError && (
+                <p role="alert" className="rounded-lg border border-rose-300/20 bg-rose-300/10 px-3 py-2 text-xs text-rose-100">
+                  {formError}
+                </p>
+              )}
+
               <button
                 type="submit"
+                disabled={submitting}
                 className="
                   mt-2
                   w-full
                   rounded-xl
-                  bg-white
-                  py-3.5
+                  bg-gradient-to-r from-[#f7f0e3] via-white to-[#eee0c3]
+                  py-3
                   text-sm
                   font-semibold
                   text-black
@@ -701,28 +745,22 @@ function Login() {
                   active:scale-[0.99]
                 "
               >
-                Sign in
+                {submitting ? "Signing in…" : "Sign in"}
               </button>
             </form>
 
             {/* Footer */}
-            <div className="mt-6 flex items-center justify-between text-xs text-white/30">
-              <button
-                type="button"
-                className="transition hover:text-white/60"
-              >
+            <div className="mt-5 flex items-center justify-between text-xs text-white/40">
+              <Link to="/forgot-password" className="transition hover:text-white/60">
                 Forgot password?
-              </button>
+              </Link>
 
-              <button
-                type="button"
-                className="transition hover:text-white/60"
-              >
+              <Link to="/register" className="transition hover:text-white/60">
                 Create account
-              </button>
+              </Link>
             </div>
 
-            <div className="mt-7 text-center text-[11px] tracking-wide text-white/20">
+            <div className="mt-5 text-center text-[11px] tracking-wide text-white/30">
               Pull the cord again to switch off
             </div>
           </div>

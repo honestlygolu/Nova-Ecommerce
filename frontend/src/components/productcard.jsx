@@ -1,26 +1,55 @@
 import { Heart, ShoppingBag, Star } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import CartContext from "../context/CartContext";
+import WishlistContext from "../context/WishlistContext";
+import { formatPrice } from "../utils/formatPrice";
+import { getApiError } from "../services/api";
 
 function ProductCard({ product }) {
-  const { addToCart } = useContext(CartContext);
+  const { addToCart, loading: cartLoading } = useContext(CartContext);
+  const wishlist = useContext(WishlistContext);
+  const saved = wishlist?.hasItem(product.id) || false;
+  const [added, setAdded] = useState(false);
+  const [actionError, setActionError] = useState("");
+
+  const handleAdd = async () => {
+    setActionError("");
+    try {
+      const result = await addToCart(product);
+      if (result === false) setActionError(`Only ${product.stock} are currently available.`);
+      else {
+        setAdded(true);
+        window.setTimeout(() => setAdded(false), 1600);
+      }
+    } catch (error) {
+      setActionError(getApiError(error, "The item couldn't be added."));
+    }
+  };
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+    <article className="group relative overflow-hidden rounded-2xl border border-black/[0.08] bg-white transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_60px_rgba(0,0,0,.1)]">
       
       {/* Product Image */}
       <div className="relative aspect-square overflow-hidden bg-gray-100">
        <Link to={`/product/${product.id}`}>
-       <img
+        <img
           src={product.image}
           alt={product.name}
+          loading="lazy"
+          onError={(event) => { event.currentTarget.src = "/product-placeholder.svg"; }}
           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
         />
         </Link>
 
         {/* Wishlist */}
-        <button className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md transition hover:bg-black hover:text-white">
-          <Heart size={18} />
+        <button
+          type="button"
+          aria-label={saved ? `Remove ${product.name} from saved items` : `Save ${product.name}`}
+          aria-pressed={saved}
+          onClick={() => wishlist?.toggleItem(product.id)}
+          className={`absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md transition hover:bg-black hover:text-white ${saved ? "text-rose-600" : "text-neutral-700"}`}
+        >
+          <Heart size={18} fill={saved ? "currentColor" : "none"} />
         </button>
 
         {/* Discount */}
@@ -56,27 +85,29 @@ function ProductCard({ product }) {
         {/* Price */}
         <div className="mt-4 flex items-center gap-3">
           <span className="text-xl font-black">
-            ₹{product.price.toLocaleString("en-IN")}
+            {formatPrice(product.pricePaise)}
           </span>
 
-          {product.originalPrice && (
+          {product.originalPricePaise > product.pricePaise && (
             <span className="text-sm text-gray-400 line-through">
-              ₹{product.originalPrice.toLocaleString("en-IN")}
+            {formatPrice(product.originalPricePaise)}
             </span>
           )}
         </div>
 
         {/* Add to Cart */}
         <button
-          onClick={() => addToCart(product)}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-black py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+          onClick={handleAdd}
+          disabled={cartLoading || product.stock <= 0}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-black py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
         >
           <ShoppingBag size={17} />
-          Add to Cart
+          {product.stock <= 0 ? "Sold out" : cartLoading ? "Syncing bag…" : added ? "Added to bag" : "Add to bag"}
         </button>
+        {actionError && <p role="status" className="mt-2 text-xs text-rose-700">{actionError}</p>}
 
       </div>
-    </div>
+    </article>
   );
 }
 

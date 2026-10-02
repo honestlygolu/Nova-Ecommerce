@@ -1,0 +1,23 @@
+[project]
+name = "nova-api"
+version = "0.1.0"
+description = "NOVA storefront API"
+requires-python = ">=3.12"
+dependencies = [
+  "alembic>=1.13,<2",
+  "email-validator>=2.2,<3",
+  "fastapi[standard]>=0.115,<1",
+  "pydantic-settings>=2.6,<3",
+  "psycopg[binary]>=3.2,<4",
+  "PyJWT>=2.9,<3",
+  "pwdlib[argon2]>=0.2,<1",
+  "razorpay>=1.4,<2",
+  "sqlalchemy>=2.0,<3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
