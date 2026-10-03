@@ -12,6 +12,7 @@ dependencies = [
   "PyJWT>=2.9,<3",
   "pwdlib[argon2]>=0.2,<1",
   "razorpay>=1.4,<2",
+  "setuptools<81",
   "sqlalchemy>=2.0,<3",
 ]
 
