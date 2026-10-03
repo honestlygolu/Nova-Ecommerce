@@ -642,10 +642,7 @@ function Login() {
           >
             {/* Logo */}
             <div className="mb-6">
-              <div className="flex items-center gap-2 text-xs tracking-[0.4em] text-white/45">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#d9b979] shadow-[0_0_10px_rgba(217,185,121,0.5)]" />
-                <span>NOVA</span>
-              </div>
+              <img src="/nova-clothing-logo.png" alt="NOVA Clothing — Since 2026" className="mb-2 h-9 w-[102px] object-contain object-left" />
 
               <h1 className="mt-2 text-2xl font-semibold tracking-tight">
                 Welcome back.

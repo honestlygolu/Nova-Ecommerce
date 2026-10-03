@@ -1,7 +1,7 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, LockKeyhole } from "lucide-react";
-import Navbar from "../components/navbar";
+import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import CartContext from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
@@ -64,7 +64,7 @@ function Checkout() {
   const [submitting, setSubmitting] = useState(false);
   const paymentHandlerStarted = useRef(false);
   const checkoutKey = useRef("");
-  const cartSignature = cartItems.map((item) => `${item.id}:${item.quantity}:${item.pricePaise}`).join("|");
+  const cartSignature = cartItems.map((item) => `${item.id}:${item.size || "M"}:${item.quantity}:${item.pricePaise}`).join("|");
   const previousCartSignature = useRef(cartSignature);
 
   useEffect(() => {
@@ -277,7 +277,7 @@ function Checkout() {
           </form>
           <aside className="rounded-3xl border border-black/[0.08] bg-white p-6 sm:p-7">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#9a8055]">{activeCheckout ? "Saved order" : "Your bag"}</p>
-            <div className="mt-5 space-y-4">{orderItems.map((item) => <div key={item.id} className="flex items-center gap-3"><img src={item.image} alt="" onError={(event) => { event.currentTarget.src = "/product-placeholder.svg"; }} className="h-14 w-14 rounded-xl bg-[#eeece6] object-cover" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{item.name}</p><p className="mt-1 text-xs text-neutral-400">Qty {item.quantity}</p></div><p className="text-sm font-semibold">{formatPrice(item.lineTotalPaise ?? item.pricePaise * item.quantity)}</p></div>)}</div>
+            <div className="mt-5 space-y-4">{orderItems.map((item) => <div key={item.id} className="flex items-center gap-3"><img src={item.image} alt="" onError={(event) => { event.currentTarget.src = "/product-placeholder.svg"; }} className="h-14 w-14 rounded-xl bg-[#eeece6] object-cover" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{item.name}</p><p className="mt-1 text-xs text-neutral-400">Size {item.size || "M"} · Qty {item.quantity}</p></div><p className="text-sm font-semibold">{formatPrice(item.lineTotalPaise ?? item.pricePaise * item.quantity)}</p></div>)}</div>
             <div className="my-5 border-t border-black/10" />
             <div className="flex justify-between text-sm text-neutral-500"><span>Subtotal</span><span className="font-medium text-black">{formatPrice(totalPaise)}</span></div>
             <div className="mt-3 flex justify-between text-sm text-neutral-500"><span>Delivery</span><span className="font-medium text-black">Complimentary</span></div>

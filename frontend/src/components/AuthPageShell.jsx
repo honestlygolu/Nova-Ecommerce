@@ -4,9 +4,8 @@ export default function AuthPageShell({ eyebrow = "NOVA ACCOUNT", title, descrip
   return (
     <main className="min-h-screen bg-[#08090a] px-5 py-12 text-white sm:px-8">
       <div className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-md flex-col justify-center">
-        <Link to="/" className="mb-8 inline-flex items-center gap-2 self-center text-sm font-semibold tracking-[0.35em] text-white/70">
-          <span className="h-2 w-2 rounded-full bg-[#d9b979] shadow-[0_0_12px_rgba(217,185,121,.7)]" />
-          NOVA
+        <Link to="/" aria-label="NOVA Clothing home" className="mb-8 inline-flex h-12 w-[132px] items-center self-center">
+          <img src="/nova-clothing-logo.png" alt="NOVA Clothing — Since 2026" className="max-h-full w-full object-contain" />
         </Link>
         <section className="rounded-[24px] border border-white/10 bg-[#151515] p-7 shadow-[0_26px_80px_rgba(0,0,0,.5)] sm:p-9">
           <p className="text-[11px] font-semibold tracking-[0.3em] text-[#d9b979]">{eyebrow}</p>

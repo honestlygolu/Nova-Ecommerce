@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import Navbar from "../components/navbar";
+import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import ProductCard from "../components/productcard";
+import ProductCard from "../components/ProductCard";
 import { useContext } from "react";
 import WishlistContext from "../context/WishlistContext";
 import api from "../services/api";

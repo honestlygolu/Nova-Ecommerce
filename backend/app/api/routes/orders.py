@@ -16,6 +16,7 @@ from app.models.cart_item import CartItem
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.models.user import User
 from app.schemas.order import (
     CreateOrderRequest,
@@ -99,13 +100,13 @@ def create_order(
     cart_items = db.scalars(
         select(CartItem)
         .where(CartItem.user_id == user.id)
-        .order_by(CartItem.product_id)
+        .order_by(CartItem.product_id, CartItem.size)
         .with_for_update()
     ).all()
     if not cart_items:
         raise HTTPException(status_code=409, detail="Your shopping bag is empty.")
 
-    current_products: list[tuple[CartItem, Product]] = []
+    current_products: list[tuple[CartItem, Product, ProductVariant]] = []
     total_paise = 0
     for cart_item in cart_items:
         product = db.scalar(
@@ -115,7 +116,14 @@ def create_order(
         )
         if product is None:
             raise HTTPException(status_code=409, detail="A product in your bag is no longer available.")
-        current_products.append((cart_item, product))
+        variant = db.scalar(
+            select(ProductVariant)
+            .where(ProductVariant.product_id == product.id, ProductVariant.size == cart_item.size)
+            .with_for_update()
+        )
+        if variant is None:
+            raise HTTPException(status_code=409, detail=f"Size {cart_item.size} of {product.name} is no longer available.")
+        current_products.append((cart_item, product, variant))
         total_paise += product.price_paise * cart_item.quantity
 
     address = data.shipping_address
@@ -124,10 +132,11 @@ def create_order(
         "items": [
             {
                 "productId": product.id,
+                "size": cart_item.size,
                 "quantity": cart_item.quantity,
                 "unitPricePaise": product.price_paise,
             }
-            for cart_item, product in current_products
+            for cart_item, product, _variant in current_products
         ],
     }
     request_fingerprint = hashlib.sha256(
@@ -156,9 +165,9 @@ def create_order(
             detail="Another checkout is already open for your account. Return to checkout to finish or cancel it.",
         )
 
-    for cart_item, product in current_products:
-        if cart_item.quantity > product.available_stock:
-            raise HTTPException(status_code=409, detail=f"Only {product.available_stock} of {product.name} are available. Please update your bag.")
+    for cart_item, product, variant in current_products:
+        if cart_item.quantity > variant.available_stock:
+            raise HTTPException(status_code=409, detail=f"Only {variant.available_stock} size {cart_item.size} of {product.name} are available. Please update your bag.")
 
     order = Order(
         order_number=new_order_number(),
@@ -179,14 +188,16 @@ def create_order(
         expires_at=now + ORDER_TTL,
     )
     db.add(order)
-    for cart_item, product in current_products:
+    for cart_item, product, variant in current_products:
         product.reserved_stock += cart_item.quantity
+        variant.reserved_stock += cart_item.quantity
         order.items.append(OrderItem(
             product_id=product.id,
             sku=product.sku,
             name=product.name,
             image=product.image_url,
             quantity=cart_item.quantity,
+            size=cart_item.size,
             unit_price_paise=product.price_paise,
             line_total_paise=product.price_paise * cart_item.quantity,
         ))

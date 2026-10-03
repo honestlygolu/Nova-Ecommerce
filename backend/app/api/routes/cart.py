@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
@@ -28,10 +28,11 @@ def cart_response(db: Session, user_id: int, warnings: list[str] | None = None) 
         CartProductRead.model_validate({
             **row.product.__dict__,
             "image": row.product.image_url,
-            "available_stock": row.product.available_stock,
+            "available_stock": next((variant.available_stock for variant in row.product.variants if variant.size == row.size), 0),
             "pricePaise": row.product.price_paise,
             "originalPricePaise": row.product.original_price_paise,
             "quantity": row.quantity,
+            "size": row.size,
         })
         for row in rows
         if row.product is not None and row.product.is_active
@@ -48,7 +49,7 @@ def get_cart(db: DbSession, user: CurrentUser):
 @router.post("/items", response_model=CartRead)
 def add_cart_item(data: CartAddRequest, db: DbSession, user: CurrentUser, _: CsrfProtected):
     item = db.scalar(
-        select(CartItem).where(CartItem.user_id == user.id, CartItem.product_id == data.product_id).with_for_update()
+        select(CartItem).where(CartItem.user_id == user.id, CartItem.product_id == data.product_id, CartItem.size == data.size).with_for_update()
     )
     product = db.scalar(
         select(Product).where(Product.id == data.product_id, Product.is_active.is_(True)).with_for_update()
@@ -58,15 +59,18 @@ def add_cart_item(data: CartAddRequest, db: DbSession, user: CurrentUser, _: Csr
     if item is None:
         # Another add may have created the row while this request waited for the product lock.
         item = db.scalar(
-            select(CartItem).where(CartItem.user_id == user.id, CartItem.product_id == product.id).with_for_update()
+            select(CartItem).where(CartItem.user_id == user.id, CartItem.product_id == product.id, CartItem.size == data.size).with_for_update()
         )
+    variant = next((variant for variant in product.variants if variant.size == data.size), None)
+    if variant is None or variant.available_stock <= 0:
+        raise HTTPException(status_code=409, detail=f"Size {data.size} is sold out for {product.name}.")
     next_quantity = data.quantity + (item.quantity if item else 0)
-    if next_quantity > product.available_stock:
-        raise HTTPException(status_code=409, detail=f"Only {product.available_stock} of {product.name} are available.")
+    if next_quantity > variant.available_stock:
+        raise HTTPException(status_code=409, detail=f"Only {variant.available_stock} size {data.size} of {product.name} are available.")
     if item:
         item.quantity = next_quantity
     else:
-        db.add(CartItem(user_id=user.id, product_id=product.id, quantity=data.quantity))
+        db.add(CartItem(user_id=user.id, product_id=product.id, size=data.size, quantity=data.quantity))
     db.commit()
     return cart_response(db, user.id)
 
@@ -78,22 +82,25 @@ def set_cart_quantity(
     db: DbSession,
     user: CurrentUser,
     _: CsrfProtected,
+    size: str = Query(default="M", pattern="^(XS|S|M|L|XL)$"),
 ):
     item = db.scalar(
-        select(CartItem).where(CartItem.user_id == user.id, CartItem.product_id == product_id).with_for_update()
+        select(CartItem).where(CartItem.user_id == user.id, CartItem.product_id == product_id, CartItem.size == size).with_for_update()
     )
     product = db.scalar(select(Product).where(Product.id == product_id, Product.is_active.is_(True)).with_for_update())
     if product is None:
         raise HTTPException(status_code=404, detail="This product is no longer available.")
-    if data.quantity > product.available_stock:
-        raise HTTPException(status_code=409, detail=f"Only {product.available_stock} of {product.name} are available.")
+    variant = next((variant for variant in product.variants if variant.size == size), None)
+    if variant is None or data.quantity > variant.available_stock:
+        available = variant.available_stock if variant else 0
+        raise HTTPException(status_code=409, detail=f"Only {available} size {size} of {product.name} are available.")
     if item is None:
         item = db.scalar(
-            select(CartItem).where(CartItem.user_id == user.id, CartItem.product_id == product_id).with_for_update()
+            select(CartItem).where(CartItem.user_id == user.id, CartItem.product_id == product_id, CartItem.size == size).with_for_update()
         )
     if item is None:
         if data.quantity > 0:
-            db.add(CartItem(user_id=user.id, product_id=product_id, quantity=data.quantity))
+            db.add(CartItem(user_id=user.id, product_id=product_id, size=size, quantity=data.quantity))
     else:
         item.quantity = data.quantity
     db.commit()
@@ -101,9 +108,9 @@ def set_cart_quantity(
 
 
 @router.delete("/items/{product_id}", response_model=CartRead)
-def remove_cart_item(product_id: int, db: DbSession, user: CurrentUser, _: CsrfProtected):
+def remove_cart_item(product_id: int, db: DbSession, user: CurrentUser, _: CsrfProtected, size: str = Query(default="M", pattern="^(XS|S|M|L|XL)$")):
     item = db.scalar(
-        select(CartItem).where(CartItem.user_id == user.id, CartItem.product_id == product_id)
+        select(CartItem).where(CartItem.user_id == user.id, CartItem.product_id == product_id, CartItem.size == size)
     )
     if item is not None:
         db.delete(item)
@@ -122,11 +129,12 @@ def clear_cart(db: DbSession, user: CurrentUser, response: Response, _: CsrfProt
 @router.post("/merge", response_model=CartRead)
 def merge_guest_cart(data: CartMergeRequest, db: DbSession, user: CurrentUser, _: CsrfProtected):
     warnings: list[str] = []
-    for guest_item in sorted(data.items, key=lambda item: item.product_id):
+    for guest_item in sorted(data.items, key=lambda item: (item.product_id, item.size)):
         item = db.scalar(
             select(CartItem).where(
                 CartItem.user_id == user.id,
                 CartItem.product_id == guest_item.product_id,
+                CartItem.size == guest_item.size,
             ).with_for_update()
         )
         product = db.scalar(
@@ -135,7 +143,8 @@ def merge_guest_cart(data: CartMergeRequest, db: DbSession, user: CurrentUser, _
                 Product.is_active.is_(True),
             ).with_for_update()
         )
-        if product is None or product.available_stock <= 0:
+        variant = next((variant for variant in product.variants if variant.size == guest_item.size), None) if product else None
+        if product is None or variant is None or variant.available_stock <= 0:
             warnings.append("An unavailable item was removed from your saved cart.")
             continue
         if item is None:
@@ -143,16 +152,17 @@ def merge_guest_cart(data: CartMergeRequest, db: DbSession, user: CurrentUser, _
                 select(CartItem).where(
                     CartItem.user_id == user.id,
                     CartItem.product_id == product.id,
+                    CartItem.size == guest_item.size,
                 ).with_for_update()
             )
         requested = guest_item.quantity + (item.quantity if item else 0)
-        allowed = min(requested, product.available_stock)
+        allowed = min(requested, variant.available_stock)
         if requested > allowed:
-            warnings.append(f"Your {product.name} quantity was adjusted to current stock.")
+            warnings.append(f"Your {product.name} size {guest_item.size} quantity was adjusted to current stock.")
         if item:
             item.quantity = allowed
         else:
-            db.add(CartItem(user_id=user.id, product_id=product.id, quantity=allowed))
+            db.add(CartItem(user_id=user.id, product_id=product.id, size=guest_item.size, quantity=allowed))
         db.flush()
     db.commit()
     return cart_response(db, user.id, warnings)

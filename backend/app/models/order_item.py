@@ -16,6 +16,7 @@ class OrderItem(Base):
     name: Mapped[str] = mapped_column(String(180))
     image: Mapped[str] = mapped_column(Text)
     quantity: Mapped[int] = mapped_column(Integer)
+    size: Mapped[str | None] = mapped_column(String(8), nullable=True)
     unit_price_paise: Mapped[int] = mapped_column(Integer)
     line_total_paise: Mapped[int] = mapped_column(Integer)
 

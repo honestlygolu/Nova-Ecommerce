@@ -12,6 +12,7 @@ function readGuestCart() {
     return items.filter((item) => Number.isInteger(Number(item.id)) && Number(item.quantity) > 0).map((item) => ({
       ...item,
       id: Number(item.id),
+      size: item.size || "M",
       pricePaise: Number(item.pricePaise ?? Number(item.price || 0) * 100),
       originalPricePaise: Number(item.originalPricePaise ?? Number(item.originalPrice || 0) * 100),
       stock: Number(item.stock ?? 50),
@@ -50,7 +51,7 @@ export function CartProvider({ children }) {
     setCartError("");
     try {
       const { data } = await api.post("cart/merge", {
-        items: guestItems.map((item) => ({ productId: item.id, quantity: item.quantity })),
+        items: guestItems.map((item) => ({ productId: item.id, size: item.size || "M", quantity: item.quantity })),
       });
       setItems(data.items);
       setWarnings(data.warnings || []);
@@ -104,62 +105,63 @@ export function CartProvider({ children }) {
     return pending;
   }, [setItems]);
 
-  const addToCart = useCallback((product) => {
+  const addToCart = useCallback((product, size = "M") => {
     setCartError("");
+    const sizeStock = Number(product.sizes?.find((variant) => variant.size === size)?.stock ?? product.stock ?? 50);
     if (user) {
-      return queueAccountChange(() => api.post("cart/items", { productId: product.id, quantity: 1 }));
+      return queueAccountChange(() => api.post("cart/items", { productId: product.id, size, quantity: 1 }));
     }
     const current = itemsRef.current;
-    const existing = current.find((item) => item.id === product.id);
-    const stock = Number(product.stock ?? 50);
+    const existing = current.find((item) => item.id === product.id && (item.size || "M") === size);
+    const stock = sizeStock;
     if (stock <= 0) {
-      setCartError(`${product.name} is currently sold out.`);
+      setCartError(`${product.name} in size ${size} is currently sold out.`);
       return Promise.resolve(false);
     }
     if (existing && existing.quantity >= stock) {
-      setCartError(`Only ${stock} of ${product.name} are available.`);
+      setCartError(`Only ${stock} size ${size} of ${product.name} are available.`);
       return Promise.resolve(false);
     }
     const next = existing
-      ? current.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item)
-      : [...current, { ...product, quantity: 1 }];
+      ? current.map((item) => item.id === product.id && (item.size || "M") === size ? { ...item, quantity: item.quantity + 1 } : item)
+      : [...current, { ...product, size, stock, quantity: 1 }];
     setItems(next);
     return Promise.resolve(true);
   }, [user, queueAccountChange, setItems]);
 
-  const removeFromCart = useCallback((productId) => {
+  const removeFromCart = useCallback((productId, size = "M") => {
     if (user) {
-      return queueAccountChange(() => api.delete(`cart/items/${productId}`));
+      return queueAccountChange(() => api.delete(`cart/items/${productId}`, { params: { size } }));
     }
-    setItems(itemsRef.current.filter((item) => item.id !== Number(productId)));
+    setItems(itemsRef.current.filter((item) => item.id !== Number(productId) || (item.size || "M") !== size));
     return Promise.resolve();
   }, [user, queueAccountChange, setItems]);
 
-  const setQuantity = useCallback((productId, quantity) => {
-    const item = itemsRef.current.find((entry) => entry.id === Number(productId));
+  const setQuantity = useCallback((productId, quantity, size = "M") => {
+    const item = itemsRef.current.find((entry) => entry.id === Number(productId) && (entry.size || "M") === size);
     if (!item) return Promise.resolve();
     const nextQuantity = Math.max(0, Math.min(Number(item.stock || 0), Number(quantity)));
-    if (nextQuantity === 0) return removeFromCart(productId);
+    if (nextQuantity === 0) return removeFromCart(productId, size);
     if (user) {
-      return queueAccountChange(() => api.put(`cart/items/${productId}`, { quantity: nextQuantity }));
+      return queueAccountChange(() => api.put(`cart/items/${productId}`, { quantity: nextQuantity }, { params: { size } }));
     }
-    setItems(itemsRef.current.map((entry) => entry.id === Number(productId) ? { ...entry, quantity: nextQuantity } : entry));
+    setItems(itemsRef.current.map((entry) => entry.id === Number(productId) && (entry.size || "M") === size ? { ...entry, quantity: nextQuantity } : entry));
     return Promise.resolve();
   }, [user, queueAccountChange, setItems, removeFromCart]);
 
-  const increaseQuantity = useCallback((productId) => {
-    const item = itemsRef.current.find((entry) => entry.id === Number(productId));
+  const increaseQuantity = useCallback((productId, size = "M") => {
+    const item = itemsRef.current.find((entry) => entry.id === Number(productId) && (entry.size || "M") === size);
     if (!item || item.quantity >= item.stock) {
       if (item) setCartError(`Only ${item.stock} of ${item.name} are available.`);
       return Promise.resolve();
     }
-    return setQuantity(productId, item.quantity + 1);
+    return setQuantity(productId, item.quantity + 1, size);
   }, [setQuantity]);
 
-  const decreaseQuantity = useCallback((productId) => {
-    const item = itemsRef.current.find((entry) => entry.id === Number(productId));
+  const decreaseQuantity = useCallback((productId, size = "M") => {
+    const item = itemsRef.current.find((entry) => entry.id === Number(productId) && (entry.size || "M") === size);
     if (!item) return Promise.resolve();
-    return setQuantity(productId, item.quantity - 1);
+    return setQuantity(productId, item.quantity - 1, size);
   }, [setQuantity]);
 
   const clearCart = useCallback(async () => {

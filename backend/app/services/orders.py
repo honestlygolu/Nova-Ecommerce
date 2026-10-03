@@ -9,6 +9,7 @@ from app.models.cart_item import CartItem
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.services.razorpay import refund_captured_payment
 
 ORDER_TTL = timedelta(minutes=30)
@@ -26,6 +27,14 @@ def release_reservations(db: Session, order: Order) -> None:
         product = db.scalar(select(Product).where(Product.id == item.product_id).with_for_update())
         if product is not None:
             product.reserved_stock = max(0, product.reserved_stock - item.quantity)
+            if item.size:
+                variant = db.scalar(
+                    select(ProductVariant)
+                    .where(ProductVariant.product_id == product.id, ProductVariant.size == item.size)
+                    .with_for_update()
+                )
+                if variant is not None:
+                    variant.reserved_stock = max(0, variant.reserved_stock - item.quantity)
 
 
 def expire_pending_orders(db: Session) -> int:
@@ -53,6 +62,7 @@ def consume_ordered_cart_items(db: Session, order: Order) -> None:
             select(CartItem).where(
                 CartItem.user_id == order.user_id,
                 CartItem.product_id == ordered_item.product_id,
+                CartItem.size == (ordered_item.size or "M"),
             ).with_for_update()
         )
         if cart_item is None:
@@ -91,7 +101,7 @@ def complete_order_payment(db: Session, order: Order, payment_id: str) -> Order:
         return order
 
     was_reserved = order.status == "pending_payment"
-    products: list[tuple[OrderItem, Product]] = []
+    products: list[tuple[OrderItem, Product, ProductVariant | None]] = []
     fulfillment_issue = False
     for item in order.items:
         if item.product_id is None:
@@ -101,25 +111,36 @@ def complete_order_payment(db: Session, order: Order, payment_id: str) -> Order:
         if product is None:
             fulfillment_issue = True
             continue
-        has_reservation = product.reserved_stock >= item.quantity
+        variant = None
+        if item.size:
+            variant = db.scalar(
+                select(ProductVariant)
+                .where(ProductVariant.product_id == product.id, ProductVariant.size == item.size)
+                .with_for_update()
+            )
+        has_reservation = variant is not None and variant.reserved_stock >= item.quantity
         enough_inventory = (
-            has_reservation and product.stock >= item.quantity
+            has_reservation and variant.stock >= item.quantity
             if was_reserved
-            else product.available_stock >= item.quantity
+            else variant is not None and variant.available_stock >= item.quantity
         )
         if not enough_inventory:
             fulfillment_issue = True
-        products.append((item, product))
+        products.append((item, product, variant))
 
     if not fulfillment_issue:
-        for item, product in products:
+        for item, product, variant in products:
             if was_reserved:
                 product.reserved_stock -= item.quantity
+                variant.reserved_stock -= item.quantity
             product.stock -= item.quantity
+            variant.stock -= item.quantity
     elif was_reserved:
-        for item, product in products:
+        for item, product, variant in products:
             if product.reserved_stock >= item.quantity:
                 product.reserved_stock -= item.quantity
+            if variant is not None and variant.reserved_stock >= item.quantity:
+                variant.reserved_stock -= item.quantity
 
     order.razorpay_payment_id = payment_id
     order.paid_at = datetime.now(timezone.utc)
@@ -151,6 +172,7 @@ def order_to_dict(order: Order) -> dict:
                 "name": item.name,
                 "image": item.image,
                 "quantity": item.quantity,
+                "size": item.size,
                 "unitPricePaise": item.unit_price_paise,
                 "lineTotalPaise": item.line_total_paise,
             }

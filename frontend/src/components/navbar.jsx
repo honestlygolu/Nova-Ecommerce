@@ -4,6 +4,7 @@ import { useContext, useState } from "react";
 import CartContext from "../context/CartContext";
 import WishlistContext from "../context/WishlistContext";
 import { useAuth } from "../context/AuthContext";
+import ThemeToggle from "./ThemeToggle";
 
 function Navbar() {
   const { cartItems = [] } = useContext(CartContext);
@@ -29,16 +30,19 @@ function Navbar() {
   return (
     <header className="relative z-40 border-b border-black/[0.08] bg-[#fbfaf7] text-[#171717]">
       <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8">
-        <Link to="/" aria-label="NOVA home" className="text-[21px] font-black tracking-[0.28em]">NOVA</Link>
+        <Link to="/" aria-label="NOVA Clothing home" className="flex h-12 w-[142px] shrink-0 items-center sm:w-[154px]">
+          <img src="/nova-clothing-logo.png" alt="NOVA Clothing — Since 2026" className="max-h-full w-full object-contain" />
+        </Link>
 
         <nav className="hidden items-center gap-8 md:flex" aria-label="Main navigation">
           <Link to="/" className="text-sm font-medium text-neutral-700 transition hover:text-black">Home</Link>
           <Link to="/shop" className="text-sm font-medium text-neutral-500 transition hover:text-black">Shop</Link>
           <Link to="/#categories" className="text-sm font-medium text-neutral-500 transition hover:text-black">Categories</Link>
-          <Link to="/#about" className="text-sm font-medium text-neutral-500 transition hover:text-black">About</Link>
+          <Link to="/about" className="text-sm font-medium text-neutral-500 transition hover:text-black">About</Link>
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-4">
+          <div className="hidden sm:block"><ThemeToggle /></div>
           <button type="button" aria-label="Search products" aria-expanded={searchOpen} onClick={() => setSearchOpen((open) => !open)} className="grid h-10 w-10 place-items-center rounded-full text-neutral-700 transition hover:bg-black/5 hover:text-black">
             <Search size={19} />
           </button>
@@ -61,7 +65,7 @@ function Navbar() {
 
       {searchOpen && (
         <form onSubmit={submitSearch} className="absolute right-4 top-[66px] z-50 flex w-[min(92vw,390px)] gap-2 rounded-2xl border border-black/10 bg-white p-3 shadow-[0_20px_60px_rgba(0,0,0,.15)] sm:right-8">
-          <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search products" placeholder="Search NOVA products" className="min-w-0 flex-1 rounded-xl bg-[#f5f4f0] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-black/15" />
+          <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Search clothes" placeholder="Search clothes" className="min-w-0 flex-1 rounded-xl bg-[#f5f4f0] px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-black/15" />
           <button className="rounded-xl bg-black px-4 text-sm font-semibold text-white transition hover:bg-neutral-800">Search</button>
         </form>
       )}
@@ -73,7 +77,8 @@ function Navbar() {
           <Link onClick={closeMenu} to="/#categories" className="rounded-xl px-4 py-3 text-sm font-medium hover:bg-black/5">Categories</Link>
           <Link onClick={closeMenu} to="/wishlist" className="rounded-xl px-4 py-3 text-sm font-medium hover:bg-black/5">Saved items</Link>
           <Link onClick={closeMenu} to={user ? "/account" : "/login"} className="rounded-xl px-4 py-3 text-sm font-medium hover:bg-black/5">{user ? "Your account" : "Sign in"}</Link>
-          <Link onClick={closeMenu} to="/#about" className="rounded-xl px-4 py-3 text-sm font-medium hover:bg-black/5">About NOVA</Link>
+          <Link onClick={closeMenu} to="/about" className="rounded-xl px-4 py-3 text-sm font-medium hover:bg-black/5">About NOVA</Link>
+          <div className="flex items-center justify-between px-4 py-3 text-sm font-medium"><span>Appearance</span><ThemeToggle /></div>
         </nav>
       )}
     </header>

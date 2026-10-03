@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import Navbar from "../components/navbar";
+import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import ProductCard from "../components/productcard";
+import ProductCard from "../components/ProductCard";
 import api from "../services/api";
 
 function Shop() {
@@ -12,7 +12,6 @@ function Shop() {
   const [search, setSearch] = useState(queryFromUrl);
   const [sort, setSort] = useState("featured");
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -21,15 +20,7 @@ function Shop() {
 
   useEffect(() => setSearch(queryFromUrl), [queryFromUrl]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    api.get("products/categories", { signal: controller.signal })
-      .then(({ data }) => setCategories(data))
-      .catch((requestError) => {
-        if (requestError.code !== "ERR_CANCELED") setCategories([]);
-      });
-    return () => controller.abort();
-  }, []);
+  const categories = ["Tops", "Layers", "Bottoms"];
 
   useEffect(() => {
     const controller = new AbortController();
@@ -86,12 +77,12 @@ function Shop() {
       <main className="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#9a8055]">Curated technology</p>
-            <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">The NOVA shop</h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-neutral-500">Considered essentials for the moments you work, play, and switch off.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#9a8055]">The clothing collection</p>
+            <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">Everyday clothes, considered.</h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-neutral-500">Easy layers, relaxed fits, and soft-touch staples made to wear on repeat.</p>
           </div>
           <form onSubmit={submitSearch} className="flex w-full max-w-md gap-2 rounded-2xl border border-black/10 bg-white p-2 shadow-sm">
-            <input type="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search products" aria-label="Search products" className="min-w-0 flex-1 bg-transparent px-3 text-sm outline-none" />
+            <input type="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search clothes" aria-label="Search clothes" className="min-w-0 flex-1 bg-transparent px-3 text-sm outline-none" />
             <button className="rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white transition hover:bg-neutral-800">Search</button>
           </form>
         </div>
@@ -118,7 +109,7 @@ function Shop() {
         </section>
 
         <div className="mt-7 flex items-center justify-between text-sm text-neutral-500">
-          <p>{loading ? "Finding your next favorite…" : `${total} ${total === 1 ? "product" : "products"}`}</p>
+          <p>{loading ? "Finding your next favorite…" : `${total} ${total === 1 ? "piece" : "pieces"}`}</p>
           {(queryFromUrl || category !== "All") && <Link to="/shop" className="underline underline-offset-4 hover:text-black">Clear filters</Link>}
         </div>
 

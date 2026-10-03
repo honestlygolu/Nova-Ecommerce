@@ -1,31 +1,12 @@
-import { Heart, ShoppingBag, Star } from "lucide-react";
+import { ArrowRight, Heart } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useContext, useState } from "react";
-import CartContext from "../context/CartContext";
+import { useContext } from "react";
 import WishlistContext from "../context/WishlistContext";
 import { formatPrice } from "../utils/formatPrice";
-import { getApiError } from "../services/api";
 
 function ProductCard({ product }) {
-  const { addToCart, loading: cartLoading } = useContext(CartContext);
   const wishlist = useContext(WishlistContext);
   const saved = wishlist?.hasItem(product.id) || false;
-  const [added, setAdded] = useState(false);
-  const [actionError, setActionError] = useState("");
-
-  const handleAdd = async () => {
-    setActionError("");
-    try {
-      const result = await addToCart(product);
-      if (result === false) setActionError(`Only ${product.stock} are currently available.`);
-      else {
-        setAdded(true);
-        window.setTimeout(() => setAdded(false), 1600);
-      }
-    } catch (error) {
-      setActionError(getApiError(error, "The item couldn't be added."));
-    }
-  };
   return (
     <article className="group relative overflow-hidden rounded-2xl border border-black/[0.08] bg-white transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_60px_rgba(0,0,0,.1)]">
       
@@ -53,7 +34,7 @@ function ProductCard({ product }) {
         </button>
 
         {/* Discount */}
-        {product.discount && (
+        {product.discount > 0 && (
           <span className="absolute left-4 top-4 rounded-full bg-black px-3 py-1 text-xs font-bold text-white">
             -{product.discount}%
           </span>
@@ -74,13 +55,7 @@ function ProductCard({ product }) {
           {product.name}
         </Link>      
 
-        {/* Rating */}
-        <div className="mt-2 flex items-center gap-1">
-          <Star size={15} fill="currentColor" />
-          <span className="text-sm font-medium">
-            {product.rating}
-          </span>
-        </div>
+        <p className="mt-2 text-xs text-neutral-500">Soft-touch feel · Easy everyday fit</p>
 
         {/* Price */}
         <div className="mt-4 flex items-center gap-3">
@@ -96,15 +71,9 @@ function ProductCard({ product }) {
         </div>
 
         {/* Add to Cart */}
-        <button
-          onClick={handleAdd}
-          disabled={cartLoading || product.stock <= 0}
-          className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-black py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
-        >
-          <ShoppingBag size={17} />
-          {product.stock <= 0 ? "Sold out" : cartLoading ? "Syncing bag…" : added ? "Added to bag" : "Add to bag"}
-        </button>
-        {actionError && <p role="status" className="mt-2 text-xs text-rose-700">{actionError}</p>}
+        <Link to={`/product/${product.id}`} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-black py-3 text-sm font-semibold text-white transition hover:bg-gray-800">
+          Choose a size <ArrowRight size={16} />
+        </Link>
 
       </div>
     </article>

@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, Integer, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -32,6 +32,16 @@ class Product(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
+    variants = relationship("ProductVariant", back_populates="product", cascade="all, delete-orphan", lazy="selectin")
+
     @property
     def available_stock(self) -> int:
         return max(0, self.stock - self.reserved_stock)
+
+    @property
+    def sizes(self) -> list[dict[str, int | str]]:
+        order = {size: index for index, size in enumerate(("XS", "S", "M", "L", "XL"))}
+        return [
+            {"size": variant.size, "stock": variant.available_stock}
+            for variant in sorted(self.variants, key=lambda variant: order.get(variant.size, 99))
+        ]

@@ -4,7 +4,8 @@ from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.payment_event import PaymentEvent
 from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.models.password_reset import PasswordReset
 from app.models.user import User
 
-__all__ = ["AuthRateLimit", "CartItem", "Order", "OrderItem", "PasswordReset", "PaymentEvent", "Product", "User"]
+__all__ = ["AuthRateLimit", "CartItem", "Order", "OrderItem", "PasswordReset", "PaymentEvent", "Product", "ProductVariant", "User"]

@@ -2,7 +2,7 @@ import { useContext } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Minus, Plus, Trash2 } from "lucide-react";
 import CartContext from "../context/CartContext";
-import Navbar from "../components/navbar";
+import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { formatPrice } from "../utils/formatPrice";
 
@@ -44,19 +44,19 @@ function Cart() {
         {!loading && cartItems.length > 0 && <div className="mt-9 grid items-start gap-6 lg:grid-cols-[1fr_360px]">
           <section className="space-y-3" aria-label="Items in your shopping bag">
             {cartItems.map((product) => (
-              <article key={product.id} className="flex gap-4 rounded-3xl border border-black/[0.08] bg-white p-4 sm:gap-6 sm:p-5">
+              <article key={`${product.id}-${product.size || "M"}`} className="flex gap-4 rounded-3xl border border-black/[0.08] bg-white p-4 sm:gap-6 sm:p-5">
                 <Link to={`/product/${product.id}`} className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-[#eeece6] sm:h-32 sm:w-32">
                   <img src={product.image} alt={product.name} onError={(event) => { event.currentTarget.src = "/product-placeholder.svg"; }} className="h-full w-full object-cover" />
                 </Link>
                 <div className="flex min-w-0 flex-1 flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                  <div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9a8055]">{product.category}</p><Link to={`/product/${product.id}`} className="mt-1 block truncate text-base font-semibold hover:underline sm:text-lg">{product.name}</Link><p className="mt-2 text-sm font-medium">{formatPrice(product.pricePaise)}</p><p className="mt-1 text-xs text-neutral-400">{product.stock} available</p></div>
+                  <div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9a8055]">{product.category}</p><Link to={`/product/${product.id}`} className="mt-1 block truncate text-base font-semibold hover:underline sm:text-lg">{product.name}</Link><p className="mt-2 text-sm text-neutral-600">Size {product.size || "M"}</p><p className="mt-1 text-sm font-medium">{formatPrice(product.pricePaise)}</p><p className="mt-1 text-xs text-neutral-400">{product.stock} available in this size</p></div>
                   <div className="flex items-center justify-between gap-5 sm:justify-end">
                     <div className="inline-flex items-center rounded-full border border-black/10 p-1">
-                      <button type="button" aria-label={`Decrease ${product.name} quantity`} disabled={product.quantity <= 1} onClick={() => decreaseQuantity(product.id)} className="grid h-8 w-8 place-items-center rounded-full text-neutral-500 transition hover:bg-black/5 hover:text-black disabled:opacity-30"><Minus size={14} /></button>
+                      <button type="button" aria-label={`Decrease ${product.name} size ${product.size || "M"} quantity`} disabled={product.quantity <= 1} onClick={() => decreaseQuantity(product.id, product.size || "M")} className="grid h-8 w-8 place-items-center rounded-full text-neutral-500 transition hover:bg-black/5 hover:text-black disabled:opacity-30"><Minus size={14} /></button>
                       <span aria-live="polite" className="min-w-8 text-center text-sm font-semibold">{product.quantity}</span>
-                      <button type="button" aria-label={`Increase ${product.name} quantity`} disabled={product.quantity >= product.stock} onClick={() => increaseQuantity(product.id)} className="grid h-8 w-8 place-items-center rounded-full text-neutral-500 transition hover:bg-black/5 hover:text-black disabled:opacity-30"><Plus size={14} /></button>
+                      <button type="button" aria-label={`Increase ${product.name} size ${product.size || "M"} quantity`} disabled={product.quantity >= product.stock} onClick={() => increaseQuantity(product.id, product.size || "M")} className="grid h-8 w-8 place-items-center rounded-full text-neutral-500 transition hover:bg-black/5 hover:text-black disabled:opacity-30"><Plus size={14} /></button>
                     </div>
-                    <button type="button" aria-label={`Remove ${product.name}`} onClick={() => removeFromCart(product.id)} className="grid h-9 w-9 place-items-center rounded-full text-neutral-400 transition hover:bg-rose-50 hover:text-rose-700"><Trash2 size={16} /></button>
+                    <button type="button" aria-label={`Remove ${product.name}, size ${product.size || "M"}`} onClick={() => removeFromCart(product.id, product.size || "M")} className="grid h-9 w-9 place-items-center rounded-full text-neutral-400 transition hover:bg-rose-50 hover:text-rose-700"><Trash2 size={16} /></button>
                   </div>
                 </div>
               </article>

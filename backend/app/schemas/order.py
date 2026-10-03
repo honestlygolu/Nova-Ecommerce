@@ -33,6 +33,7 @@ class OrderItemRead(BaseModel):
     name: str
     image: str
     quantity: int
+    size: str | None = None
     unit_price_paise: int
     line_total_paise: int
 

@@ -6,6 +6,11 @@ def to_camel(value: str) -> str:
     return first + "".join(part.capitalize() for part in rest)
 
 
+class ProductSizeRead(BaseModel):
+    size: str
+    stock: int
+
+
 class ProductRead(BaseModel):
     model_config = ConfigDict(from_attributes=True, alias_generator=to_camel, populate_by_name=True)
 
@@ -20,6 +25,7 @@ class ProductRead(BaseModel):
     rating: float
     image: str = Field(validation_alias="image_url")
     stock: int = Field(validation_alias="available_stock")
+    sizes: list[ProductSizeRead]
 
 
 class ProductPage(BaseModel):
